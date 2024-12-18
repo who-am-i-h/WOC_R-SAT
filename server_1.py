@@ -30,7 +30,7 @@ def recv() -> str:
             continue
 while True:
     prompt = input("[" + color_text("*", "blue")+ "]"+ color_text("Connected to ", "green") + f"{addr}~ ")
-    (prompt)
+    send(prompt)
     print(recv())
 
 
