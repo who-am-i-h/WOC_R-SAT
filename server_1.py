@@ -12,7 +12,7 @@ s.listen(1)
 
 conn, addr = s.accept()
 
-def reliable_send(data):
+def send(data):
     msg = json.dumps(data)
     conn.send(msg.encode())
 
@@ -20,7 +20,7 @@ def color_text(text, color):
     return termcolor.colored(text, color)
 
 print(color_text("this is just for test", "red"))
-def reliable_recv() -> str:
+def recv() -> str:
     data = ""
     while True:
         try:
@@ -30,7 +30,7 @@ def reliable_recv() -> str:
             continue
 while True:
     prompt = input("[" + color_text("*", "blue")+ "]"+ color_text("Connected to ", "green") + f"{addr}~ ")
-    reliable_send(prompt)
-    print(reliable_recv())
+    (prompt)
+    print(recv())
 
 
