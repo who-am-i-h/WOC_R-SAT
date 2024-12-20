@@ -1,39 +1,22 @@
-import socket
-import json
+from rsat import Tool
+import threading
 import termcolor
 from rich.console import Console
 from rich.table import Table
 from rich.live import Live
-import threading
-from Crypto.Cipher import AES
 import time
-from Crypto.Util.Padding import pad, unpad
+import socket
+
 
 #variables 
-
 clients = {}
 lock = threading.Lock()  
 key = b'just for test123'
 listen_clients = 5
 server_id = 0
 curr_sys = ""
-
 def color(text, col):
     return termcolor.colored(text, col)
-
-
-# AES communications
-def aes_encrypt(plaintext, key):
-    cipher = AES.new(key, AES.MODE_CBC)
-    ct_bytes = cipher.encrypt(pad(plaintext.encode(), AES.block_size))
-    return cipher.iv + ct_bytes
-
-def aes_decrypt(ciphertext, key):
-    iv = ciphertext[:AES.block_size]
-    ct = ciphertext[AES.block_size:]
-    cipher = AES.new(key, AES.MODE_CBC, iv)
-    decrypted = unpad(cipher.decrypt(ct), AES.block_size)
-    return decrypted.decode()
 
 #TODO Learn Threads_lock
 def handle_clients():
@@ -42,7 +25,6 @@ def handle_clients():
         conn, addr = s.accept()
         with lock:
             clients[addr] = conn
-
 
 def show_stats(cpu_percent, V_ram, dsk_usage, duration=5):
     console = Console()
@@ -62,28 +44,6 @@ def show_stats(cpu_percent, V_ram, dsk_usage, duration=5):
             live.update(create_table(cpu_percent, V_ram, dsk_usage))
             time.sleep(1)
 
-def send(client, data):
-    msg = json.dumps(data)
-    msg = aes_encrypt(msg, key)
-    client.send(msg)
-
-def recv(client) -> str:
-    data = b""
-    try:
-        while True:
-            chunk = client.recv(1024)
-            if not chunk:
-                break
-            data += chunk
-            try:
-                decrypted = aes_decrypt(data, key)
-                return json.loads(decrypted)
-            except (ValueError, json.JSONDecodeError):
-                continue
-    except Exception as e:
-        print(f"Error receiving data: {e}")
-    return None
-
 
 s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 HOST = "localhost"
@@ -92,38 +52,58 @@ s.bind((HOST, PORT))
 s.listen(listen_clients)
 print(termcolor.colored("Server started and listening...", "green"))
 
-
+def check_client(client_socket):
+    global key
+    try:
+        s = Tool(key, client_socket)
+        s.send("..SYN..")
+        s.recv()
+        return True  
+    except socket.error:
+        return False 
 threading.Thread(target=handle_clients, daemon=True).start()
 
 
 while True:
     if clients:
-
         try:
             addr, conn = list(clients.items())[server_id]
+            server = Tool(key, conn)
         except (ValueError, IndexError) as e:
-            print(termcolor.colored(f"Some Error Happened. {e}", "red"))
+            print(termcolor.colored(f"Some Error Happened: {e}", "red"))
+            server_id = 0
             continue
-        prompt = input(f"[{color("*", "blue")}] {color("shell", "green")}~{addr[0]} {curr_sys}")
+
+        prompt = input(f"[{color("*", "blue")}] {color("shell", "green")}~{addr} ")
+
+
         if prompt.lower().startswith("switch"):
             try:
                 server_id = int(prompt.split()[1]) - 1
-                curr_sys = ""
             except:
+                server_id = 0
                 continue
 
         elif prompt.lower() == "active":
+            for addr, conn in list(clients.items()):
+                if not check_client(conn):
+                    with lock:
+                        del clients[addr]
             with lock:
                 print(color("Connected clients:", "cyan"))
                 for i, (addr, conn) in enumerate(clients.items(), 1):
-                    print(f"[{i}] {color(addr[0], "blue")}")
+                    print(f"[{i}] {color(addr, "blue")}")
         else:
-            send(conn, prompt)
-            from_client = recv(conn)
-            if from_client.startswith("####CPUM#### "):
-                stats = from_client.split("####CPUM#### ")[1].split("-")
-                show_stats(stats[0], stats[1], stats[2])
-            else:
-                print(from_client)
-
-        
+            try:
+                server.send(prompt)
+                from_client = server.recv()
+                if from_client.startswith("####CPUM#### "):
+                    stats = from_client.split("####CPUM#### ")[1].split("-")
+                    show_stats(stats[0], stats[1], stats[2])
+                else:
+                    print(from_client)
+            except:
+                print(color("The Client may be offline.... ", "red"))
+                print(color("switching to the first server...", "green"))
+                server_id = 0
+                continue
