@@ -63,7 +63,6 @@ def check_client(client_socket):
         return False 
 threading.Thread(target=handle_clients, daemon=True).start()
 
-
 while True:
     if clients:
         try:
@@ -87,8 +86,7 @@ while True:
         elif prompt.lower() == "active":
             for addr, conn in list(clients.items()):
                 if not check_client(conn):
-                    with lock:
-                        del clients[addr]
+                    clients.pop(addr)
             with lock:
                 print(color("Connected clients:", "cyan"))
                 for i, (addr, conn) in enumerate(clients.items(), 1):
@@ -104,6 +102,9 @@ while True:
                     print(from_client)
             except:
                 print(color("The Client may be offline.... ", "red"))
+                for addr, conn in list(clients.items()):
+                    if not check_client(conn):
+                        clients.pop(addr)
                 print(color("switching to the first server...", "green"))
                 server_id = 0
                 continue
