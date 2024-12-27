@@ -6,12 +6,13 @@ from rich.table import Table
 from rich.live import Live
 import time
 import socket
+from DFH import Dfh_server as Dfh
 
 
 #variables 
 clients = {}
+keys = []
 lock = threading.Lock()  
-key = b'just for test123'
 listen_clients = 5
 server_id = 0
 curr_sys = ""
@@ -23,8 +24,19 @@ def handle_clients():
     global clients
     while True:
         conn, addr = s.accept()
+        key_gen = conn.recv(1024).decode().split("-")
+        a, mod = int(key_gen[0]), int(key_gen[1])
+        client_secret = int(key_gen[2])
+        server_df = Dfh(a, mod)
+        secret = server_df.private_expo()
+        key = server_df.genrate_secret(client_secret)
+        conn.send(str(secret).encode())
+        # conn.recv(1024)
+
         with lock:
             clients[addr] = conn
+            keys.append(str(key).encode()[:16])
+            print(color(f"Connected to {addr}", "green"), "secret=",str(key).encode()[:16])
 
 def show_stats(cpu_percent, V_ram, dsk_usage, duration=5):
     console = Console()
@@ -52,8 +64,7 @@ s.bind((HOST, PORT))
 s.listen(listen_clients)
 print(termcolor.colored("Server started and listening...", "green"))
 
-def check_client(client_socket):
-    global key
+def check_client(key, client_socket):
     try:
         s = Tool(key, client_socket)
         s.send("..SYN..")
@@ -67,6 +78,7 @@ while True:
     if clients:
         try:
             addr, conn = list(clients.items())[server_id]
+            key = keys[server_id]
             server = Tool(key, conn)
         except (ValueError, IndexError) as e:
             print(termcolor.colored(f"Some Error Happened: {e}", "red"))
@@ -84,8 +96,9 @@ while True:
                 continue
 
         elif prompt.lower() == "active":
-            for addr, conn in list(clients.items()):
-                if not check_client(conn):
+            for i, (addr, conn) in enumerate(clients.items()):
+                key = keys[i]
+                if not check_client(key, conn):
                     clients.pop(addr)
             with lock:
                 print(color("Connected clients:", "cyan"))
@@ -103,7 +116,8 @@ while True:
             except:
                 print(color("The Client may be offline.... ", "red"))
                 for addr, conn in list(clients.items()):
-                    if not check_client(conn):
+                    key = keys[server_id]
+                    if not check_client(key, conn):
                         clients.pop(addr)
                 print(color("switching to the first server...", "green"))
                 server_id = 0
